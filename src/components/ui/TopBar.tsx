@@ -29,7 +29,7 @@ export function TopBar() {
   const {
     appMode, setAppMode, startQuiz,
     isListening, setListening, addMessage,
-    setPendingVoiceCommand,
+    setPendingVoiceCommand, selectedStructure,
   } = useAnatomyStore()
 
   const [showTeachPicker, setShowTeachPicker] = useState(false)
@@ -172,7 +172,7 @@ export function TopBar() {
           </button>
 
           {/* Sticky Notes */}
-          <StickyNotesLayer />
+          <StickyNotesLayer linkedStructure={selectedStructure?.name} />
         </div>
       </div>
 
