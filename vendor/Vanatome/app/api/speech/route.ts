@@ -5,9 +5,9 @@ const speechRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
-    return Response.json({ error: "OPENAI_API_KEY is not configured." }, { status: 503 });
+    return Response.json({ error: "ELEVENLABS_API_KEY is not configured." }, { status: 503 });
   }
 
   let body: unknown;
@@ -23,20 +23,27 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
+    const voiceId = process.env.ELEVENLABS_VOICE_ID ?? "JBFqnCBsd6RMkjVDRZzb";
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?model_id=eleven_flash_v2_5&output_format=mp3_22050_32`,
+      {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        "xi-api-key": apiKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini-tts",
-        voice: "marin",
-        input: parsed.data.text,
-        instructions: "Speak like a warm, calm, clear medical anatomy tutor. Use natural pacing and gentle emphasis. Do not sound robotic or theatrical.",
-        response_format: "mp3",
+        text: parsed.data.text,
+        voice_settings: {
+          stability: 0.45,
+          similarity_boost: 0.8,
+          style: 0.2,
+          use_speaker_boost: true,
+          speed: 1,
+        },
       }),
-    });
+      },
+    );
 
     if (!response.ok) {
       const detail = await response.text();
@@ -46,9 +53,9 @@ export async function POST(request: Request) {
       );
     }
 
-    return new Response(await response.arrayBuffer(), {
+    return new Response(response.body, {
       headers: {
-        "Content-Type": "audio/mpeg",
+        "Content-Type": response.headers.get("content-type") ?? "audio/mpeg",
         "Cache-Control": "no-store",
       },
     });
