@@ -8,10 +8,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { AnatomyStructure } from "../../../data/anatomy";
 import {
   type ChatConversation,
+  type ChatMessage,
   createChatConversation,
   getChatConversation,
   listChatConversations,
   saveChatMessage,
+  updateChatConversation,
 } from "../../../lib/chat-api";
 import type { LearningResource } from "../../../lib/learning-resources";
 import { supabase } from "../../../lib/supabase";
@@ -69,6 +71,31 @@ type RichMessagePart =
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function targetFromToolPart(part: unknown) {
+  if (!isRecord(part) || part.type !== "tool-focusStructure" || part.state !== "output-available") {
+    return null;
+  }
+  if (!isRecord(part.output) || part.output.found !== true || typeof part.output.structureId !== "string") {
+    return null;
+  }
+  const structure = isRecord(part.output.structure) ? part.output.structure : null;
+  return {
+    id: part.output.structureId,
+    name: structure && typeof structure.name === "string" ? structure.name : null,
+  };
+}
+
+function targetFromMessages(messages: ChatMessage[]) {
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const parts = messages[messageIndex].parts;
+    for (let partIndex = parts.length - 1; partIndex >= 0; partIndex -= 1) {
+      const target = targetFromToolPart(parts[partIndex]);
+      if (target) return target;
+    }
+  }
+  return null;
 }
 
 function richMessageParts(parts: ChatPart[]): RichMessagePart[] {
@@ -263,7 +290,12 @@ export function AIChatPanel({
         const toolPart = part as {
           type?: string;
           state?: string;
-          output?: { found?: boolean; structureId?: string; layer?: string };
+          output?: {
+            found?: boolean;
+            structureId?: string;
+            layer?: string;
+            structure?: { name?: string };
+          };
         };
         if (
           toolPart.type === "tool-focusStructure" &&
@@ -272,6 +304,16 @@ export function AIChatPanel({
           toolPart.output.structureId
         ) {
           onFocusStructure(toolPart.output.structureId, toolPart.output.layer);
+          const structure = isRecord(toolPart.output.structure) ? toolPart.output.structure : null;
+          const targetOrganName = structure && typeof structure.name === "string" ? structure.name : null;
+          if (conversationIdRef.current) {
+            void updateChatConversation(conversationIdRef.current, {
+              targetOrganId: toolPart.output.structureId,
+              targetOrganName,
+            }).catch((reason: unknown) => {
+              setPersistenceError(reason instanceof Error ? reason.message : "Unable to save chat target.");
+            });
+          }
         }
       }
       if (!isAbort && !isDisconnect && !isError) {
@@ -337,8 +379,23 @@ export function AIChatPanel({
         role: message.role,
         parts: message.parts,
       })) as UIMessage[]);
-      const targetOrganId = detail.conversation.target_organ_id ?? detail.conversation.selected_structure_id;
-      if (targetOrganId) onFocusStructureRef.current(targetOrganId);
+      const recoveredTarget = targetFromMessages(detail.messages);
+      const target = detail.conversation.target_organ_id
+        ? { id: detail.conversation.target_organ_id, name: detail.conversation.target_organ_name }
+        : recoveredTarget ?? (detail.conversation.selected_structure_id
+          ? { id: detail.conversation.selected_structure_id, name: detail.conversation.selected_structure_name }
+          : null);
+      if (target) {
+        onFocusStructureRef.current(target.id);
+        if (!detail.conversation.target_organ_id && recoveredTarget) {
+          void updateChatConversation(detail.conversation.id, {
+            targetOrganId: recoveredTarget.id,
+            targetOrganName: recoveredTarget.name,
+          }).catch((reason: unknown) => {
+            setPersistenceError(reason instanceof Error ? reason.message : "Unable to save chat target.");
+          });
+        }
+      }
       setHistoryOpen(false);
       setPersistenceError(null);
     } catch (reason: unknown) {
@@ -391,8 +448,23 @@ export function AIChatPanel({
           role: message.role,
           parts: message.parts,
         })) as UIMessage[]);
-        const targetOrganId = detail.conversation.target_organ_id ?? detail.conversation.selected_structure_id;
-        if (targetOrganId) onFocusStructureRef.current(targetOrganId);
+        const recoveredTarget = targetFromMessages(detail.messages);
+        const target = detail.conversation.target_organ_id
+          ? { id: detail.conversation.target_organ_id, name: detail.conversation.target_organ_name }
+          : recoveredTarget ?? (detail.conversation.selected_structure_id
+            ? { id: detail.conversation.selected_structure_id, name: detail.conversation.selected_structure_name }
+            : null);
+        if (target) {
+          onFocusStructureRef.current(target.id);
+          if (!detail.conversation.target_organ_id && recoveredTarget) {
+            void updateChatConversation(detail.conversation.id, {
+              targetOrganId: recoveredTarget.id,
+              targetOrganName: recoveredTarget.name,
+            }).catch((reason: unknown) => {
+              setPersistenceError(reason instanceof Error ? reason.message : "Unable to save chat target.");
+            });
+          }
+        }
         setPersistenceError(null);
       } catch (reason: unknown) {
         if (active) {
