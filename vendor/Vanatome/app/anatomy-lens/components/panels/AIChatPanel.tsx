@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { ArrowLeft, Brain, History, Plus, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Brain, History, Plus, Send, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { AnatomyStructure } from "../../../data/anatomy";
 import {
@@ -16,6 +16,7 @@ import {
   updateChatConversation,
 } from "../../../lib/chat-api";
 import type { LearningResource } from "../../../lib/learning-resources";
+import { requestSpeech } from "../../../lib/speech";
 import { supabase } from "../../../lib/supabase";
 import { LearningResourceCard } from "./LearningResourceCard";
 import { MermaidDiagram } from "./MermaidDiagram";
@@ -71,6 +72,16 @@ type RichMessagePart =
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function speechText(text: string) {
+  return hideMermaidSource(text)
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/[`*_#]/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function targetFromToolPart(part: unknown) {
@@ -192,7 +203,15 @@ function MarkdownText({ text }: { text: string }) {
   );
 }
 
-function MessageBubble({ message }: { message: { role: string; parts: ChatPart[] } }) {
+function MessageBubble({
+  message,
+  onSpeak,
+  speaking,
+}: {
+  message: { role: string; parts: ChatPart[] };
+  onSpeak?: (text: string) => void;
+  speaking?: boolean;
+}) {
   const isAI = message.role === "assistant";
   const content = isAI ? hideMermaidSource(messageText(message)) : messageText(message);
   const richParts = richMessageParts(message.parts);
@@ -227,6 +246,17 @@ function MessageBubble({ message }: { message: { role: string; parts: ChatPart[]
         ) : (
           <LearningResourceCard key={`resources-${index}`} resources={part.resources} />
         ))}
+        {isAI && content && onSpeak && (
+          <button
+            type="button"
+            onClick={() => onSpeak(content)}
+            className="mt-2 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-cyan-400/80 hover:text-cyan-300 transition-colors"
+            aria-label={speaking ? "Stop reading response" : "Read response aloud"}
+          >
+            {speaking ? <VolumeX size={13} /> : <Volume2 size={13} />}
+            {speaking ? "Stop" : "Listen"}
+          </button>
+        )}
       </div>
     </motion.div>
   );
@@ -245,10 +275,14 @@ export function AIChatPanel({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const conversationPromiseRef = useRef<Promise<string | null> | null>(null);
   const conversationIdRef = useRef<string | null>(null);
   const onFocusStructureRef = useRef(onFocusStructure);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const speechRequestRef = useRef(0);
 
   useEffect(() => {
     onFocusStructureRef.current = onFocusStructure;
@@ -326,6 +360,59 @@ export function AIChatPanel({
     },
   });
   const isThinking = status === "submitted" || status === "streaming";
+
+  const handleSpeak = useCallback(async (messageId: string, text: string) => {
+    if (speakingMessageId === messageId) {
+      speechRequestRef.current += 1;
+      audioRef.current?.pause();
+      audioRef.current = null;
+      setSpeakingMessageId(null);
+      return;
+    }
+
+    const textToSpeak = speechText(text);
+    if (!textToSpeak) return;
+
+    speechRequestRef.current += 1;
+    const requestId = speechRequestRef.current;
+    audioRef.current?.pause();
+    audioRef.current = null;
+    setVoiceError(null);
+    setSpeakingMessageId(messageId);
+
+    try {
+      const audioUrl = URL.createObjectURL(await requestSpeech(textToSpeak));
+      if (requestId !== speechRequestRef.current) {
+        URL.revokeObjectURL(audioUrl);
+        return;
+      }
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
+        setSpeakingMessageId(null);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
+        setSpeakingMessageId(null);
+        setVoiceError("Unable to play the voice response.");
+      };
+      await audio.play();
+    } catch (reason: unknown) {
+      if (requestId !== speechRequestRef.current) return;
+      setSpeakingMessageId(null);
+      setVoiceError(reason instanceof Error ? reason.message : "Unable to generate the voice response.");
+    }
+  }, [speakingMessageId]);
+
+  useEffect(() => () => {
+    speechRequestRef.current += 1;
+    audioRef.current?.pause();
+    audioRef.current = null;
+  }, []);
 
   const ensureConversation = useCallback(async (title?: string) => {
     if (conversationId) return conversationId;
@@ -629,7 +716,12 @@ export function AIChatPanel({
 
         <AnimatePresence>
           {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
+            <MessageBubble
+              key={message.id}
+              message={message}
+              onSpeak={message.role === "assistant" ? (text) => void handleSpeak(message.id, text) : undefined}
+              speaking={speakingMessageId === message.id}
+            />
           ))}
         </AnimatePresence>
 
@@ -647,6 +739,12 @@ export function AIChatPanel({
         {error && (
           <p className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-lg p-2">
             {error.message || "The anatomy tutor is unavailable right now."}
+          </p>
+        )}
+
+        {voiceError && (
+          <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2">
+            {voiceError}
           </p>
         )}
 
