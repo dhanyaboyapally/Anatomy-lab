@@ -350,7 +350,7 @@ function AtlasModel({ atlas, model, selectedId, hoveredId, isolatedId, isolation
     };
     return (_jsx("primitive", { object: model, onPointerDown: handlePointerDown, onPointerUp: handlePointerUp, onPointerMove: handlePointerMove, onPointerOut: () => onPoint(null), onContextMenu: handleContextMenu }));
 }
-function CameraController({ atlas, models, selectedId, isolatedId, isolation, visibleLayers, alwaysVisibleIds, hiddenIds, focusRequestKey, resetViewKey, initialCameraPosition, initialCameraTarget, focusDistance, focusPadding, cameraAnimationDuration, respectReducedMotion, enablePan, minDistance, maxDistance, onFocusRejected, onCameraChange, onInteractionStart, onInteractionEnd, }) {
+function CameraController({ atlas, models, selectedId, isolatedId, isolation, visibleLayers, alwaysVisibleIds, hiddenIds, focusRequestKey, focusOnSelection, resetViewKey, initialCameraPosition, initialCameraTarget, focusDistance, focusPadding, cameraAnimationDuration, respectReducedMotion, enablePan, minDistance, maxDistance, onFocusRejected, onCameraChange, onInteractionStart, onInteractionEnd, }) {
     const controls = useRef(null);
     const animation = useRef(null);
     const previousResetKey = useRef(resetViewKey);
@@ -405,7 +405,7 @@ function CameraController({ atlas, models, selectedId, isolatedId, isolation, vi
         reducedMotion,
     ]);
     useEffect(() => {
-        if (!selectedId)
+        if (!selectedId || !focusOnSelection)
             return;
         const selected = atlas.structures.find((structure) => structure.id === selectedId);
         if (!selected) {
@@ -459,6 +459,7 @@ function CameraController({ atlas, models, selectedId, isolatedId, isolation, vi
         focusDistance,
         focusPadding,
         focusRequestKey,
+        focusOnSelection,
         maxDistance,
         minDistance,
         models,
@@ -566,7 +567,7 @@ function CompositeScene({ atlases, onError, onLoadProgress, onModelReady, ...pro
         .map(([, model]) => model), [activeUrls, models]);
     return (_jsxs(_Fragment, { children: [_jsx("ambientLight", { intensity: 0.8 }), _jsx("directionalLight", { position: [4, 5, 6], intensity: 2.2 }), atlases.map((sourceAtlas) => (_jsx(ViewerErrorBoundary, { modelUrl: sourceAtlas.modelUrl, onError: onError, children: _jsx(Suspense, { fallback: _jsx(LoadingMonitor, { onProgress: onLoadProgress }), children: _jsx(LoadedAtlasModel, { ...props, sourceAtlas: sourceAtlas, onMount: registerModel, onModelReady: onModelReady }) }) }, sourceAtlas.modelUrl))), _jsx(CameraController, { ...props, models: activeModels })] }));
 }
-export function VanatomeViewer({ className, style, ariaLabel = "Interactive 3D anatomy viewer", loadingFallback, incrementalLoadingFallback, errorFallback, modelScale = 1, modelPosition = [0, 0, 0], initialCameraPosition = [0, 0, 8], initialCameraTarget = [0, 0, 0], focusDistance = 4, focusPadding = 1.25, cameraAnimationDuration = 550, respectReducedMotion = true, enablePan = false, minDistance = 2, maxDistance = 30, appearance, hoveredId, onHover, onLoadStart, onLoadProgress, onModelReady, onReady, onError, onSelect, onStructureContextMenu, onEscape, selectedId, atlas: singleAtlas, atlases, ...props }) {
+export function VanatomeViewer({ className, style, ariaLabel = "Interactive 3D anatomy viewer", loadingFallback, incrementalLoadingFallback, errorFallback, modelScale = 1, modelPosition = [0, 0, 0], initialCameraPosition = [0, 0, 8], initialCameraTarget = [0, 0, 0], focusDistance = 4, focusPadding = 1.25, cameraAnimationDuration = 550, respectReducedMotion = true, enablePan = false, focusOnSelection = true, minDistance = 2, maxDistance = 30, appearance, hoveredId, onHover, onLoadStart, onLoadProgress, onModelReady, onReady, onError, onSelect, onStructureContextMenu, onEscape, selectedId, atlas: singleAtlas, atlases, ...props }) {
     const composition = useMemo(() => resolveVanatomeAtlasSources({ atlas: singleAtlas, atlases }), [atlases, singleAtlas]);
     const collectionKey = composition.modelUrls.join("\u0000");
     const primaryModelUrl = composition.modelUrls[0];
@@ -705,7 +706,7 @@ export function VanatomeViewer({ className, style, ariaLabel = "Interactive 3D a
                     clientY: bounds ? bounds.top + bounds.height / 2 : 0,
                 });
             }
-        }, children: [_jsxs(Canvas, { camera: { position: [...initialCameraPosition], fov: 42 }, onPointerMissed: () => onSelect?.(null), children: [composition.atlases.map((sourceAtlas) => (_jsx(LoadStartMonitor, { modelUrl: sourceAtlas.modelUrl, onLoadStart: handleLoadStart }, sourceAtlas.modelUrl))), _jsx(ContextMonitor, { modelUrl: primaryModelUrl, onError: handleError, onRestore: handleContextRestore }), _jsx(CompositeScene, { ...props, atlas: compositeAtlas, atlases: composition.atlases, selectedId: selectedId, hoveredId: effectiveHoveredId, onSelect: onSelect, onStructureContextMenu: onStructureContextMenu, onPoint: handlePoint, onError: handleError, onLoadProgress: onLoadProgress, onModelReady: handleModelReady, modelScale: modelScale, modelPosition: modelPosition, initialCameraPosition: initialCameraPosition, initialCameraTarget: initialCameraTarget, focusDistance: focusDistance, focusPadding: focusPadding, cameraAnimationDuration: cameraAnimationDuration, respectReducedMotion: respectReducedMotion, enablePan: enablePan, minDistance: minDistance, maxDistance: maxDistance, appearance: resolvedAppearance })] }), fallback != null && (_jsx("div", { "aria-live": "polite", style: {
+        }, children: [_jsxs(Canvas, { camera: { position: [...initialCameraPosition], fov: 42 }, onPointerMissed: () => onSelect?.(null), children: [composition.atlases.map((sourceAtlas) => (_jsx(LoadStartMonitor, { modelUrl: sourceAtlas.modelUrl, onLoadStart: handleLoadStart }, sourceAtlas.modelUrl))), _jsx(ContextMonitor, { modelUrl: primaryModelUrl, onError: handleError, onRestore: handleContextRestore }), _jsx(CompositeScene, { ...props, atlas: compositeAtlas, atlases: composition.atlases, selectedId: selectedId, hoveredId: effectiveHoveredId, onSelect: onSelect, onStructureContextMenu: onStructureContextMenu, onPoint: handlePoint, onError: handleError, onLoadProgress: onLoadProgress, onModelReady: handleModelReady, modelScale: modelScale, modelPosition: modelPosition, initialCameraPosition: initialCameraPosition, initialCameraTarget: initialCameraTarget, focusDistance: focusDistance, focusPadding: focusPadding, cameraAnimationDuration: cameraAnimationDuration, respectReducedMotion: respectReducedMotion, enablePan: enablePan, focusOnSelection: focusOnSelection, minDistance: minDistance, maxDistance: maxDistance, appearance: resolvedAppearance })] }), fallback != null && (_jsx("div", { "aria-live": "polite", style: {
                     position: "absolute",
                     inset: 0,
                     display: "grid",
