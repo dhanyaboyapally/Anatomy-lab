@@ -7,7 +7,6 @@ import {
   Brain,
   CheckCircle2,
   MessageSquare,
-  Target,
   Trophy,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -283,7 +282,6 @@ export function ProgressDashboard() {
               <span className="progress-eyebrow">ANATOMY COVERAGE</span>
               <h2>Explore your studied regions</h2>
             </div>
-            <span className="progress-model-badge"><Target size={13} /> PLACEHOLDER VIEW</span>
           </div>
           <div className="progress-model-stage">
             {modelError ? (
