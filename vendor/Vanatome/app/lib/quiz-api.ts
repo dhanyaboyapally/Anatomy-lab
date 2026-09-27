@@ -1,4 +1,5 @@
 import { requireSupabase } from "./supabase";
+import type { ChatConversation } from "./chat-api";
 
 export type QuizQuestion = {
   id: string;
@@ -38,6 +39,7 @@ export type ProgressResponse = {
     completed_quizzes: number;
   };
   quiz_sessions: QuizSession[];
+  chat_conversations: ChatConversation[];
 };
 
 async function quizApiRequest<T>(url: string, init?: RequestInit): Promise<T> {
