@@ -38,6 +38,7 @@ export function AnatomyScene({
       focusOnSelection={focusOnSelection}
       focusDistance={2.2}
       systemColors={SYSTEM_COLORS}
+      appearance={{ bodyShellOpacity: interactive ? 0.12 : 0.07 }}
       enablePan={interactive}
       style={{ pointerEvents: interactive ? "auto" : "none" }}
       alwaysVisibleIds={["body-shell"]}
