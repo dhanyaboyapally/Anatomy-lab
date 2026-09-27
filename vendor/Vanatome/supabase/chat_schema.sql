@@ -5,6 +5,8 @@ create table if not exists public.chat_conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   title text not null default 'New anatomy chat',
+  target_organ_id text,
+  target_organ_name text,
   selected_structure_id text,
   selected_structure_name text,
   mode text not null default 'chat',
