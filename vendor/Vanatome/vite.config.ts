@@ -20,10 +20,12 @@ export default defineConfig(async () => {
   return {
     optimizeDeps: {
       include: ["three", "@react-three/fiber", "@react-three/drei"],
+      exclude: ["@ai-sdk/google"],
     },
     ssr: {
       optimizeDeps: {
         include: ["three", "@react-three/fiber", "@react-three/drei"],
+        exclude: ["@ai-sdk/google"],
       },
     },
     server: usePolling
