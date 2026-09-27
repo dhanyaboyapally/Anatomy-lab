@@ -386,6 +386,8 @@ export function AIChatPanel({
           role: message.role,
           parts: message.parts,
         })) as UIMessage[]);
+        const targetOrganId = detail.conversation.target_organ_id ?? detail.conversation.selected_structure_id;
+        if (targetOrganId) onFocusStructure(targetOrganId);
         setPersistenceError(null);
       } catch (reason: unknown) {
         if (active) {
@@ -405,7 +407,7 @@ export function AIChatPanel({
       active = false;
       authSubscription.subscription.unsubscribe();
     };
-  }, [setMessages]);
+  }, [onFocusStructure, setMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
