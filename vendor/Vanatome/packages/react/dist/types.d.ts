@@ -61,6 +61,7 @@ export type VanatomeViewerError = {
 };
 export type VanatomeViewerAppearance = {
     bodyShellId?: string | null;
+    bodyShellOpacity?: number;
     skeletonId?: string | null;
     defaultOpacity?: number;
     xrayOpacity?: number;
