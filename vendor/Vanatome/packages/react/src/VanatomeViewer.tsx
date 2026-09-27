@@ -97,6 +97,7 @@ type CameraAnimation = {
 
 const DEFAULT_APPEARANCE: Required<VanatomeViewerAppearance> = {
   bodyShellId: "body-shell",
+  bodyShellOpacity: 0.12,
   skeletonId: "skeleton",
   defaultOpacity: 0.78,
   xrayOpacity: 0.28,
@@ -387,7 +388,7 @@ function AtlasModel({
 
         if (id === appearance.bodyShellId) {
           material.transparent = true;
-          material.opacity = 0.12;
+          material.opacity = appearance.bodyShellOpacity;
           material.depthWrite = false;
           material.color.set("#41dff7");
           material.emissive.set("#087c99");
