@@ -6,7 +6,7 @@ import {
   tool,
   type UIMessage,
 } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import atlasRegistry from "../../../public/models/z-anatomy-1.4.0-registry.json";
 import { searchLearningResources } from "../../lib/learning-resources";
@@ -131,10 +131,10 @@ ${catalog}`;
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
     return Response.json(
-      { error: "OPENAI_API_KEY is not configured." },
+      { error: "GEMINI_API_KEY is not configured." },
       { status: 503 },
     );
   }
@@ -164,10 +164,10 @@ export async function POST(request: Request) {
       (atlasStructure) => !structureCatalog.some(({ id }) => id === atlasStructure.id),
     ),
   ];
-  const openai = createOpenAI({ apiKey });
+  const google = createGoogleGenerativeAI({ apiKey });
 
   const result = streamText({
-    model: openai("gpt-4o-mini"),
+    model: google(process.env.GEMINI_MODEL ?? "gemini-2.5-flash"),
     system: buildInstructions({
       selectedStructure,
       visibleSystems,
