@@ -22,6 +22,7 @@ import {
   ATLAS_CATALOG_URL,
 } from "../config/atlas";
 import { getProgress, type QuizSession } from "../lib/quiz-api";
+import type { ChatConversation } from "../lib/chat-api";
 import { supabase } from "../lib/supabase";
 
 const AnatomyScene = dynamic(
@@ -38,6 +39,13 @@ const AnatomyScene = dynamic(
 );
 
 function formatQuizDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
+}
+
+function formatChatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
@@ -89,6 +97,7 @@ export function ProgressDashboard() {
   const [atlases, setAtlases] = useState<readonly VanatomeAtlas[]>([]);
   const [modelError, setModelError] = useState<string | null>(null);
   const [quizSessions, setQuizSessions] = useState<QuizSession[]>([]);
+  const [chatConversations, setChatConversations] = useState<ChatConversation[]>([]);
   const [progressSummary, setProgressSummary] = useState({
     organs_studied: 0,
     quiz_accuracy: 0,
@@ -116,6 +125,7 @@ export function ProgressDashboard() {
       if (!signedIn) {
         if (active) {
           setQuizSessions([]);
+          setChatConversations([]);
           setProgressSummary({ organs_studied: 0, quiz_accuracy: 0, completed_quizzes: 0 });
           setProgressState("signed-out");
         }
@@ -127,6 +137,7 @@ export function ProgressDashboard() {
         const progress = await getProgress();
         if (!active) return;
         setQuizSessions(progress.quiz_sessions);
+        setChatConversations(progress.chat_conversations);
         setProgressSummary(progress.summary);
         setProgressState("signed-in");
       } catch {
@@ -152,16 +163,29 @@ export function ProgressDashboard() {
     [atlases],
   );
   const highlightedOrganId = useMemo(() => {
-    const latestOrganId = quizSessions[0]?.organ_id;
+    const latestQuiz = quizSessions[0];
+    const latestChat = chatConversations[0];
+    const latestOrganId = latestChat && (!latestQuiz || new Date(latestChat.updated_at) > new Date(latestQuiz.created_at))
+      ? latestChat.target_organ_id ?? latestChat.selected_structure_id
+      : latestQuiz?.organ_id;
     if (!latestOrganId) return null;
     return atlases.some((atlas) =>
       atlas.structures.some((structure) => structure.id === latestOrganId),
     )
       ? latestOrganId
       : null;
-  }, [atlases, quizSessions]);
+  }, [atlases, chatConversations, quizSessions]);
+  const latestActivity = useMemo(() => {
+    const latestQuiz = quizSessions[0];
+    const latestChat = chatConversations[0];
+    return latestChat && (!latestQuiz || new Date(latestChat.updated_at) > new Date(latestQuiz.created_at))
+      ? "chat"
+      : "quiz";
+  }, [chatConversations, quizSessions]);
   const highlightedOrganName = highlightedOrganId
-    ? atlases.flatMap((atlas) => atlas.structures).find((structure) => structure.id === highlightedOrganId)?.name
+    ? latestActivity === "chat" && chatConversations[0]?.target_organ_id === highlightedOrganId && chatConversations[0].target_organ_name
+      ? chatConversations[0].target_organ_name
+      : atlases.flatMap((atlas) => atlas.structures).find((structure) => structure.id === highlightedOrganId)?.name
     : null;
 
   return (
@@ -224,7 +248,7 @@ export function ProgressDashboard() {
               />
             ) : null}
             <div className="progress-model-overlay">
-              <span>{highlightedOrganName ? "LATEST QUIZ ACTIVITY" : "FULL-BODY ATLAS"}</span>
+              <span>{highlightedOrganName ? `LATEST ${latestActivity.toUpperCase()} ACTIVITY` : "FULL-BODY ATLAS"}</span>
               <strong>{highlightedOrganName ?? `${progressSummary.organs_studied} regions visited`}</strong>
             </div>
           </div>
@@ -232,11 +256,24 @@ export function ProgressDashboard() {
 
         <section className="progress-session-grid" aria-label="Study session history">
           <SessionColumn title="Chat sessions" eyebrow="RECENT LEARNING" icon={MessageSquare}>
-            <article className="progress-empty-state">
-              <Brain size={17} />
-              <strong>{progressState === "signed-out" ? "Sign in to view chat history" : "Chat history is not saved yet"}</strong>
-              <span>Chat persistence will be added after media attachments are supported.</span>
-            </article>
+            {progressState === "loading" ? (
+              <article className="progress-empty-state"><span>Loading saved chat sessions…</span></article>
+            ) : progressState === "signed-out" ? (
+              <article className="progress-empty-state"><span>Sign in to view chat history.</span></article>
+            ) : chatConversations.length === 0 ? (
+              <article className="progress-empty-state"><Brain size={17} /><span>No saved chat sessions yet.</span></article>
+            ) : (
+              chatConversations.map((conversation) => (
+                <article className="progress-session-item" key={conversation.id}>
+                  <div className="progress-session-item-icon"><MessageSquare size={15} /></div>
+                  <div className="progress-session-item-copy">
+                    <strong>{conversation.title}</strong>
+                    <span>{conversation.target_organ_name ?? conversation.selected_structure_name ?? "General anatomy"}</span>
+                  </div>
+                  <div className="progress-session-meta"><span>{formatChatDate(conversation.updated_at)}</span></div>
+                </article>
+              ))
+            )}
           </SessionColumn>
 
           <SessionColumn title="Quiz sessions" eyebrow="KNOWLEDGE CHECKS" icon={Trophy}>
