@@ -4,6 +4,8 @@ import { ensurePublicUser } from "../../../lib/notes";
 
 const createConversationSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
+  targetOrganId: z.string().trim().max(200).nullable().optional(),
+  targetOrganName: z.string().trim().max(200).nullable().optional(),
   selectedStructureId: z.string().trim().max(200).nullable().optional(),
   selectedStructureName: z.string().trim().max(200).nullable().optional(),
   mode: z.string().trim().min(1).max(50).optional(),
@@ -17,7 +19,7 @@ export async function GET(request: Request) {
     await ensurePublicUser(context.user, context.client);
     const { data, error } = await context.client
       .from("chat_conversations")
-      .select("id,user_id,title,selected_structure_id,selected_structure_name,mode,created_at,updated_at")
+      .select("id,user_id,title,target_organ_id,target_organ_name,selected_structure_id,selected_structure_name,mode,created_at,updated_at")
       .eq("user_id", context.user.id)
       .order("updated_at", { ascending: false })
       .limit(50);
@@ -55,11 +57,13 @@ export async function POST(request: Request) {
       .insert({
         user_id: context.user.id,
         title: parsed.data.title ?? "New anatomy chat",
+        target_organ_id: parsed.data.targetOrganId ?? null,
+        target_organ_name: parsed.data.targetOrganName ?? null,
         selected_structure_id: parsed.data.selectedStructureId ?? null,
         selected_structure_name: parsed.data.selectedStructureName ?? null,
         mode: parsed.data.mode ?? "chat",
       })
-      .select("id,user_id,title,selected_structure_id,selected_structure_name,mode,created_at,updated_at")
+      .select("id,user_id,title,target_organ_id,target_organ_name,selected_structure_id,selected_structure_name,mode,created_at,updated_at")
       .single();
 
     if (error) throw error;

@@ -16,7 +16,7 @@ export async function GET(request: Request, routeContext: RouteContext) {
   try {
     const { data: conversation, error: conversationError } = await context.client
       .from("chat_conversations")
-      .select("id,user_id,title,selected_structure_id,selected_structure_name,mode,created_at,updated_at")
+      .select("id,user_id,title,target_organ_id,target_organ_name,selected_structure_id,selected_structure_name,mode,created_at,updated_at")
       .eq("id", conversationId)
       .eq("user_id", context.user.id)
       .maybeSingle();
