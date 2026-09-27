@@ -40,7 +40,7 @@ export function AnatomyScene({
       systemColors={SYSTEM_COLORS}
       enablePan={interactive}
       style={{ pointerEvents: interactive ? "auto" : "none" }}
-      alwaysVisibleIds={interactive ? ["body-shell"] : []}
+      alwaysVisibleIds={["body-shell"]}
       loadingFallback={(
         <div className="scene-loading">
           <div className="scanner-ring" />

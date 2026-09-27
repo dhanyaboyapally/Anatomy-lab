@@ -107,7 +107,7 @@ function getActivityVisibleIds(
   }
 
   return structures
-    .filter((structure) => !visibleIds.has(structure.id))
+    .filter((structure) => structure.id !== "body-shell" && !visibleIds.has(structure.id))
     .map((structure) => structure.id);
 }
 
