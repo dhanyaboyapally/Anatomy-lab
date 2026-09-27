@@ -69,6 +69,7 @@ type LoadedSceneProps = Omit<
   cameraAnimationDuration: number;
   respectReducedMotion: boolean;
   enablePan: boolean;
+  focusOnSelection: boolean;
   minDistance: number;
   maxDistance: number;
   appearance: Required<VanatomeViewerAppearance>;
@@ -576,6 +577,7 @@ function CameraController({
   alwaysVisibleIds,
   hiddenIds,
   focusRequestKey,
+  focusOnSelection,
   resetViewKey,
   initialCameraPosition,
   initialCameraTarget,
@@ -600,6 +602,7 @@ function CameraController({
   | "alwaysVisibleIds"
   | "hiddenIds"
   | "focusRequestKey"
+  | "focusOnSelection"
   | "resetViewKey"
   | "initialCameraPosition"
   | "initialCameraTarget"
@@ -679,7 +682,7 @@ function CameraController({
   );
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId || !focusOnSelection) return;
     const selected = atlas.structures.find(
       (structure: VanatomeStructure) => structure.id === selectedId,
     );
@@ -743,6 +746,7 @@ function CameraController({
     focusDistance,
     focusPadding,
     focusRequestKey,
+    focusOnSelection,
     maxDistance,
     minDistance,
     models,
@@ -941,6 +945,7 @@ export function VanatomeViewer({
   cameraAnimationDuration = 550,
   respectReducedMotion = true,
   enablePan = false,
+  focusOnSelection = true,
   minDistance = 2,
   maxDistance = 30,
   appearance,
@@ -1183,6 +1188,7 @@ export function VanatomeViewer({
           cameraAnimationDuration={cameraAnimationDuration}
           respectReducedMotion={respectReducedMotion}
           enablePan={enablePan}
+          focusOnSelection={focusOnSelection}
           minDistance={minDistance}
           maxDistance={maxDistance}
           appearance={resolvedAppearance}
