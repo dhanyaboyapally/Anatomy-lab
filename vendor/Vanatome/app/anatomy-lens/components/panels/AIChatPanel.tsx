@@ -220,7 +220,12 @@ export function AIChatPanel({
   const [historyLoading, setHistoryLoading] = useState(false);
   const conversationPromiseRef = useRef<Promise<string | null> | null>(null);
   const conversationIdRef = useRef<string | null>(null);
+  const onFocusStructureRef = useRef(onFocusStructure);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    onFocusStructureRef.current = onFocusStructure;
+  }, [onFocusStructure]);
   const catalog = useMemo<ChatStructure[]>(
     () => availableStructures.map(({ id, name, system, layer, parentId, summary, function: structureFunction, fact }) => ({
       id,
@@ -333,7 +338,7 @@ export function AIChatPanel({
         parts: message.parts,
       })) as UIMessage[]);
       const targetOrganId = detail.conversation.target_organ_id ?? detail.conversation.selected_structure_id;
-      if (targetOrganId) onFocusStructure(targetOrganId);
+      if (targetOrganId) onFocusStructureRef.current(targetOrganId);
       setHistoryOpen(false);
       setPersistenceError(null);
     } catch (reason: unknown) {
@@ -341,7 +346,7 @@ export function AIChatPanel({
     } finally {
       setHistoryLoading(false);
     }
-  }, [onFocusStructure, setMessages]);
+  }, [setMessages]);
 
   const startNewConversation = useCallback(() => {
     conversationIdRef.current = null;
@@ -387,7 +392,7 @@ export function AIChatPanel({
           parts: message.parts,
         })) as UIMessage[]);
         const targetOrganId = detail.conversation.target_organ_id ?? detail.conversation.selected_structure_id;
-        if (targetOrganId) onFocusStructure(targetOrganId);
+        if (targetOrganId) onFocusStructureRef.current(targetOrganId);
         setPersistenceError(null);
       } catch (reason: unknown) {
         if (active) {
@@ -407,7 +412,7 @@ export function AIChatPanel({
       active = false;
       authSubscription.subscription.unsubscribe();
     };
-  }, [onFocusStructure, setMessages]);
+  }, [setMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
