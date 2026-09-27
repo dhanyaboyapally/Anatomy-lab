@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { Brain, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Brain, History, Plus, Send, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { AnatomyStructure } from "../../../data/anatomy";
 import {
+  type ChatConversation,
   createChatConversation,
   getChatConversation,
   listChatConversations,
@@ -35,6 +36,11 @@ const QUICK_ACTIONS = [
   "Teach me the heart's left ventricle",
   "What is located behind the stomach?",
 ];
+
+function chatTitle(message: string) {
+  const title = message.trim().split(/\s+/).slice(0, 8).join(" ");
+  return title.length > 72 ? `${title.slice(0, 69).trimEnd()}...` : title || "New anatomy chat";
+}
 
 function messageText(message: { parts: Array<{ type: string; text?: string }> }) {
   return message.parts
@@ -209,6 +215,9 @@ export function AIChatPanel({
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const conversationPromiseRef = useRef<Promise<string | null> | null>(null);
   const conversationIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -276,7 +285,7 @@ export function AIChatPanel({
     if (!supabase) return null;
     if (!conversationPromiseRef.current) {
       conversationPromiseRef.current = createChatConversation({
-        title: title?.slice(0, 120),
+        title: title ? chatTitle(title) : undefined,
         selectedStructureId: selectedContext?.id ?? null,
         selectedStructureName: selectedContext?.name ?? null,
         mode,
@@ -298,6 +307,46 @@ export function AIChatPanel({
     return conversationPromiseRef.current;
   }, [conversationId, mode, selectedContext]);
 
+  const loadConversations = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      setConversations(await listChatConversations());
+      setPersistenceError(null);
+    } catch (reason: unknown) {
+      setPersistenceError(reason instanceof Error ? reason.message : "Unable to load chat history.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const openConversation = useCallback(async (id: string) => {
+    setHistoryLoading(true);
+    try {
+      const detail = await getChatConversation(id);
+      conversationIdRef.current = detail.conversation.id;
+      setConversationId(detail.conversation.id);
+      setMessages(detail.messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        parts: message.parts,
+      })) as UIMessage[]);
+      setHistoryOpen(false);
+      setPersistenceError(null);
+    } catch (reason: unknown) {
+      setPersistenceError(reason instanceof Error ? reason.message : "Unable to open chat history.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [setMessages]);
+
+  const startNewConversation = useCallback(() => {
+    conversationIdRef.current = null;
+    setConversationId(null);
+    setMessages([]);
+    setPersistenceError(null);
+    setHistoryOpen(false);
+  }, [setMessages]);
+
   useEffect(() => {
     if (!supabase) return;
 
@@ -309,6 +358,7 @@ export function AIChatPanel({
           setConversationId(null);
           setPersistenceError(null);
           setMessages([]);
+          setConversations([]);
         }
         return;
       }
@@ -316,6 +366,7 @@ export function AIChatPanel({
       try {
         const conversations = await listChatConversations();
         if (!active) return;
+        setConversations(conversations);
         const latest = conversations[0];
         if (!latest) {
           conversationIdRef.current = null;
@@ -395,7 +446,81 @@ export function AIChatPanel({
             {persistenceError ? "Chat history unavailable" : "Your anatomy tutor"}
           </p>
         </div>
+        <div className="ml-auto flex items-center gap-1">
+          {historyOpen && (
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(false)}
+              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/8 transition-colors"
+              aria-label="Back to chat"
+              title="Back to chat"
+            >
+              <ArrowLeft size={15} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setHistoryOpen(true);
+              void loadConversations();
+            }}
+            className="p-2 rounded-lg text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors"
+            aria-label="Open chat history"
+            title="Chat history"
+          >
+            <History size={15} />
+          </button>
+        </div>
       </div>
+
+      {historyOpen ? (
+        <div className="flex-1 overflow-y-auto px-3 py-3 scrollbar-thin">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-400/70">Saved sessions</p>
+              <h3 className="text-sm font-semibold text-white mt-1">Chat history</h3>
+            </div>
+            <button
+              type="button"
+              onClick={startNewConversation}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-cyan-500/15 border border-cyan-500/25 text-cyan-300 hover:bg-cyan-500/25 transition-colors"
+            >
+              <Plus size={13} />
+              New chat
+            </button>
+          </div>
+
+          {historyLoading ? (
+            <p className="text-xs text-gray-500 py-6 text-center">Loading chat history...</p>
+          ) : conversations.length === 0 ? (
+            <div className="rounded-xl border border-white/8 bg-gray-800/40 px-4 py-6 text-center">
+              <History size={20} className="mx-auto text-gray-600 mb-2" />
+              <p className="text-xs text-gray-500">No saved chat sessions yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {conversations.map((conversation) => (
+                <button
+                  key={conversation.id}
+                  type="button"
+                  onClick={() => void openConversation(conversation.id)}
+                  className={`w-full text-left rounded-xl border px-3 py-2.5 transition-colors ${
+                    conversation.id === conversationId
+                      ? "border-cyan-500/35 bg-cyan-500/10"
+                      : "border-white/8 bg-gray-800/35 hover:border-cyan-500/25 hover:bg-gray-800/70"
+                  }`}
+                >
+                  <span className="block text-xs font-medium text-gray-200 truncate">{conversation.title}</span>
+                  <span className="block text-[10px] text-gray-500 mt-1">
+                    {new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(conversation.updated_at))}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
 
       {selectedContext && (
         <div className="flex-shrink-0 px-3 py-2 mx-3 mt-2 rounded-lg bg-cyan-500/8 border border-cyan-500/20">
@@ -488,6 +613,8 @@ export function AIChatPanel({
           </button>
         </form>
       </div>
+        </>
+      )}
     </div>
   );
 }
