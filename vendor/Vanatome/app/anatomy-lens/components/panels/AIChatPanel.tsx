@@ -286,6 +286,8 @@ export function AIChatPanel({
     if (!conversationPromiseRef.current) {
       conversationPromiseRef.current = createChatConversation({
         title: title ? chatTitle(title) : undefined,
+        targetOrganId: selectedContext?.id ?? null,
+        targetOrganName: selectedContext?.name ?? null,
         selectedStructureId: selectedContext?.id ?? null,
         selectedStructureName: selectedContext?.name ?? null,
         mode,
@@ -330,6 +332,8 @@ export function AIChatPanel({
         role: message.role,
         parts: message.parts,
       })) as UIMessage[]);
+      const targetOrganId = detail.conversation.target_organ_id ?? detail.conversation.selected_structure_id;
+      if (targetOrganId) onFocusStructure(targetOrganId);
       setHistoryOpen(false);
       setPersistenceError(null);
     } catch (reason: unknown) {
@@ -337,7 +341,7 @@ export function AIChatPanel({
     } finally {
       setHistoryLoading(false);
     }
-  }, [setMessages]);
+  }, [onFocusStructure, setMessages]);
 
   const startNewConversation = useCallback(() => {
     conversationIdRef.current = null;
