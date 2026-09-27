@@ -16,7 +16,7 @@ import {
   updateChatConversation,
 } from "../../../lib/chat-api";
 import type { LearningResource } from "../../../lib/learning-resources";
-import { requestSpeech } from "../../../lib/speech";
+import { createSpeechPlayback, requestSpeech } from "../../../lib/speech";
 import { supabase } from "../../../lib/supabase";
 import { LearningResourceCard } from "./LearningResourceCard";
 import { MermaidDiagram } from "./MermaidDiagram";
@@ -282,6 +282,7 @@ export function AIChatPanel({
   const onFocusStructureRef = useRef(onFocusStructure);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const stopSpeechRef = useRef<(() => void) | null>(null);
   const speechRequestRef = useRef(0);
 
   useEffect(() => {
@@ -364,6 +365,8 @@ export function AIChatPanel({
   const handleSpeak = useCallback(async (messageId: string, text: string) => {
     if (speakingMessageId === messageId) {
       speechRequestRef.current += 1;
+      stopSpeechRef.current?.();
+      stopSpeechRef.current = null;
       audioRef.current?.pause();
       audioRef.current = null;
       setSpeakingMessageId(null);
@@ -375,27 +378,32 @@ export function AIChatPanel({
 
     speechRequestRef.current += 1;
     const requestId = speechRequestRef.current;
+    stopSpeechRef.current?.();
+    stopSpeechRef.current = null;
     audioRef.current?.pause();
     audioRef.current = null;
     setVoiceError(null);
     setSpeakingMessageId(messageId);
 
     try {
-      const audioUrl = URL.createObjectURL(await requestSpeech(textToSpeak));
+      const playback = await createSpeechPlayback(await requestSpeech(textToSpeak));
       if (requestId !== speechRequestRef.current) {
-        URL.revokeObjectURL(audioUrl);
+        playback.stop();
         return;
       }
 
-      const audio = new Audio(audioUrl);
+      const audio = playback.audio;
       audioRef.current = audio;
+      stopSpeechRef.current = playback.stop;
       audio.onended = () => {
-        URL.revokeObjectURL(audioUrl);
+        playback.stop();
+        stopSpeechRef.current = null;
         audioRef.current = null;
         setSpeakingMessageId(null);
       };
       audio.onerror = () => {
-        URL.revokeObjectURL(audioUrl);
+        playback.stop();
+        stopSpeechRef.current = null;
         audioRef.current = null;
         setSpeakingMessageId(null);
         setVoiceError("Unable to play the voice response.");
@@ -410,8 +418,10 @@ export function AIChatPanel({
 
   useEffect(() => () => {
     speechRequestRef.current += 1;
+    stopSpeechRef.current?.();
     audioRef.current?.pause();
     audioRef.current = null;
+    stopSpeechRef.current = null;
   }, []);
 
   const ensureConversation = useCallback(async (title?: string) => {
