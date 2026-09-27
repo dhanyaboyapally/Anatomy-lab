@@ -58,7 +58,9 @@ export async function createSpeechPlayback(stream: ReadableStream<Uint8Array>) {
         const { done, value } = await reader.read();
         if (done) break;
         if (value?.byteLength) {
-          pendingChunks.push(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+          const chunk = new Uint8Array(value.byteLength);
+          chunk.set(value);
+          pendingChunks.push(chunk.buffer);
           appendNext();
         }
       }

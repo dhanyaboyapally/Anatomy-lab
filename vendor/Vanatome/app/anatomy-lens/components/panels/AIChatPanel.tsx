@@ -110,8 +110,8 @@ function targetFromMessages(messages: ChatMessage[]) {
 }
 
 function richMessageParts(parts: ChatPart[]): RichMessagePart[] {
-  return parts.flatMap((part) => {
-    if (part.state !== "output-available" || !isRecord(part.output)) return [];
+  return parts.reduce<RichMessagePart[]>((richParts, part) => {
+    if (part.state !== "output-available" || !isRecord(part.output)) return richParts;
 
     if (
       part.type === "tool-createDiagram" &&
@@ -120,7 +120,8 @@ function richMessageParts(parts: ChatPart[]): RichMessagePart[] {
       typeof part.output.title === "string" &&
       typeof part.output.code === "string"
     ) {
-      return [{ type: "diagram" as const, title: part.output.title, code: part.output.code }];
+      richParts.push({ type: "diagram", title: part.output.title, code: part.output.code });
+      return richParts;
     }
 
     if (
@@ -136,11 +137,11 @@ function richMessageParts(parts: ChatPart[]): RichMessagePart[] {
         typeof item.thumbnailUrl === "string" &&
         typeof item.source === "string"
       ));
-      return resources.length ? [{ type: "resources" as const, resources }] : [];
+      if (resources.length) richParts.push({ type: "resources", resources });
     }
 
-    return [];
-  });
+    return richParts;
+  }, []);
 }
 
 function InlineMarkdown({ text }: { text: string }) {
