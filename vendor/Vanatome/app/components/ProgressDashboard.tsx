@@ -73,7 +73,7 @@ function getActivityVisibleIds(
       conversation.target_organ_id,
       conversation.selected_structure_id,
     ]),
-  ].filter((id): id is string => Boolean(id) && structureIds.has(id)));
+  ].filter((id): id is string => id !== null && structureIds.has(id)));
   const childrenByParent = new Map<string, string[]>();
   const parentById = new Map<string, string>();
 
