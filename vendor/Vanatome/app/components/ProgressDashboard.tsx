@@ -61,6 +61,56 @@ function quizStatus(session: QuizSession) {
   return "Review one topic";
 }
 
+function getActivityVisibleIds(
+  atlases: readonly VanatomeAtlas[],
+  quizSessions: readonly QuizSession[],
+  chatConversations: readonly ChatConversation[],
+) {
+  const structures = atlases.flatMap((atlas) => atlas.structures);
+  const structureIds = new Set(structures.map((structure) => structure.id));
+  const activityRoots = new Set([
+    ...quizSessions.map((session) => session.organ_id),
+    ...chatConversations.flatMap((conversation) => [
+      conversation.target_organ_id,
+      conversation.selected_structure_id,
+    ]),
+  ].filter((id): id is string => Boolean(id) && structureIds.has(id)));
+  const childrenByParent = new Map<string, string[]>();
+  const parentById = new Map<string, string>();
+
+  for (const structure of structures) {
+    if (!structure.parentId) continue;
+    parentById.set(structure.id, structure.parentId);
+    const children = childrenByParent.get(structure.parentId) ?? [];
+    children.push(structure.id);
+    childrenByParent.set(structure.parentId, children);
+  }
+
+  const visibleIds = new Set(activityRoots);
+  const pending = [...activityRoots];
+  while (pending.length > 0) {
+    const id = pending.pop();
+    if (!id) continue;
+    for (const childId of childrenByParent.get(id) ?? []) {
+      if (visibleIds.has(childId)) continue;
+      visibleIds.add(childId);
+      pending.push(childId);
+    }
+  }
+  for (const rootId of activityRoots) {
+    let parentId = parentById.get(rootId);
+    while (parentId) {
+      if (visibleIds.has(parentId)) break;
+      visibleIds.add(parentId);
+      parentId = parentById.get(parentId);
+    }
+  }
+
+  return structures
+    .filter((structure) => !visibleIds.has(structure.id))
+    .map((structure) => structure.id);
+}
+
 function SessionColumn({
   title,
   eyebrow,
@@ -187,6 +237,10 @@ export function ProgressDashboard() {
       ? chatConversations[0].target_organ_name
       : atlases.flatMap((atlas) => atlas.structures).find((structure) => structure.id === highlightedOrganId)?.name
     : null;
+  const hiddenProgressStructureIds = useMemo(
+    () => getActivityVisibleIds(atlases, quizSessions, chatConversations),
+    [atlases, chatConversations, quizSessions],
+  );
 
   return (
     <main className="progress-page-shell">
@@ -244,6 +298,7 @@ export function ProgressDashboard() {
                 resetViewKey={0}
                 interactive={false}
                 focusOnSelection={false}
+                hiddenIds={hiddenProgressStructureIds}
                 onSelect={() => undefined}
                 onStructureContextMenu={() => undefined}
                 onEscape={() => undefined}

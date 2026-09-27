@@ -20,6 +20,7 @@ type Props = {
   onEscape: () => void;
   interactive?: boolean;
   focusOnSelection?: boolean;
+  hiddenIds?: readonly string[];
 };
 
 export function AnatomyScene({
@@ -39,7 +40,7 @@ export function AnatomyScene({
       systemColors={SYSTEM_COLORS}
       enablePan={interactive}
       style={{ pointerEvents: interactive ? "auto" : "none" }}
-      alwaysVisibleIds={["body-shell"]}
+      alwaysVisibleIds={interactive ? ["body-shell"] : []}
       loadingFallback={(
         <div className="scene-loading">
           <div className="scanner-ring" />
