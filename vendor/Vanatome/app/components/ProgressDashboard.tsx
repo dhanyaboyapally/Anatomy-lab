@@ -242,6 +242,8 @@ export function ProgressDashboard() {
                 visibleLayers={visibleLayers}
                 focusRequestKey={0}
                 resetViewKey={0}
+                interactive={false}
+                focusOnSelection={false}
                 onSelect={() => undefined}
                 onStructureContextMenu={() => undefined}
                 onEscape={() => undefined}

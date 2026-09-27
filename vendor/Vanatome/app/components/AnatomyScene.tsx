@@ -18,18 +18,27 @@ type Props = {
   onSelect: (id: string | null) => void;
   onStructureContextMenu: (event: VanatomeContextMenuEvent) => void;
   onEscape: () => void;
+  interactive?: boolean;
+  focusOnSelection?: boolean;
 };
 
-export function AnatomyScene({ atlases, ...props }: Props) {
+export function AnatomyScene({
+  atlases,
+  interactive = true,
+  focusOnSelection = true,
+  ...props
+}: Props) {
   return (
     <VanatomeViewer
       atlases={atlases}
       modelScale={7}
       modelPosition={[0, -6.1, 0]}
       initialCameraPosition={[0, 0, 18]}
+      focusOnSelection={focusOnSelection}
       focusDistance={2.2}
       systemColors={SYSTEM_COLORS}
-      enablePan
+      enablePan={interactive}
+      style={{ pointerEvents: interactive ? "auto" : "none" }}
       alwaysVisibleIds={["body-shell"]}
       loadingFallback={(
         <div className="scene-loading">
