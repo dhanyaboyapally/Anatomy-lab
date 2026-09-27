@@ -76,6 +76,16 @@ export function getChatConversation(id: string): Promise<ChatConversationDetail>
   return chatApiRequest(`/api/chat/conversations/${encodeURIComponent(id)}`);
 }
 
+export function updateChatConversation(
+  id: string,
+  input: { targetOrganId: string; targetOrganName?: string | null },
+): Promise<ChatConversation> {
+  return chatApiRequest(`/api/chat/conversations/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
 export function saveChatMessage(
   conversationId: string,
   message: Pick<ChatMessage, "role" | "content" | "parts">,
