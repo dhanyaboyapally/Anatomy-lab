@@ -38,7 +38,7 @@
     "atlas:test": "node --test tools/anatomy/tests/*.test.mjs"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.78",
+    "@ai-sdk/google": "^4.0.82",
     "@ai-sdk/react": "^4.0.119",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
